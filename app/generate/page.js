@@ -23,39 +23,42 @@ import {
 import SaveIcon from '@mui/icons-material/Save'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import CloseIcon from '@mui/icons-material/Close'
+import { useUser } from '@clerk/nextjs' // Import Clerk's useUser
+import { collection, doc, writeBatch, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase' // Import your firebase config
 
 export default function Generate() {
+  const { user } = useUser() // Get the authenticated user
   const [text, setText] = useState('')
   const [flashcards, setFlashcards] = useState([])
   const [setName, setSetName] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [flipped, setFlipped] = useState({})
+
   const handleOpenDialog = () => setDialogOpen(true)
   const handleCloseDialog = () => setDialogOpen(false)
 
   const handleSubmit = async () => {
     if (!text.trim()) {
-      alert('Please enter some text to generate flashcards.');
-      return;
+      alert('Please enter some text to generate flashcards.')
+      return
     }
-  
+
     try {
       const response = await fetch('../api/generate', {
         method: 'POST',
         body: text,
-      });
-  
-      const responseText = await response.text(); // Read response as text
-      console.log('Raw response:', responseText); // Log raw response
-  
-      // Attempt to parse JSON only if it looks valid
-      const data = JSON.parse(responseText); 
-      setFlashcards(data);
+      })
+
+      const responseText = await response.text()
+      const data = JSON.parse(responseText)
+      setFlashcards(data)
     } catch (error) {
-      console.error('Error generating flashcards:', error);
-      alert('An error occurred while generating flashcards. Please try again.');
+      console.error('Error generating flashcards:', error)
+      alert('An error occurred while generating flashcards. Please try again.')
     }
   }
-  
+
   const saveFlashcards = async () => {
     if (!setName.trim()) {
       alert('Please enter a name for your flashcard set.')
@@ -88,6 +91,13 @@ export default function Generate() {
       console.error('Error saving flashcards:', error)
       alert('An error occurred while saving flashcards. Please try again.')
     }
+  }
+
+  const handleCardClick = (index) => {
+    setFlipped((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }))
   }
 
   return (
@@ -137,17 +147,53 @@ export default function Generate() {
           <Grid container spacing={3}>
             {flashcards.map((flashcard, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card elevation={6} sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="h6">Front:</Typography>
+              <Box
+                sx={{
+                  perspective: '1000px', // Apply perspective to the container
+                }}
+              >
+                <Card
+                  sx={{
+                    height: '200px',
+                    transformStyle: 'preserve-3d',
+                    transform: flipped[index] ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    transition: 'transform 0.6s',
+                    position: 'relative',
+                  }}
+                  onClick={() => handleCardClick(index)}
+                >
+                  <CardContent
+                    sx={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'white', // Ensure the front has a background color
+                    }}
+                  >
                     <Typography>{flashcard.front}</Typography>
-                    <Typography variant="h6" sx={{ mt: 2 }}>
-                      Back:
-                    </Typography>
+                  </CardContent>
+                  <CardContent
+                    sx={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      //backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'white', // Ensure the back has a background color
+                    }}
+                  >
                     <Typography>{flashcard.back}</Typography>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Box>
+            </Grid>
+            
             ))}
           </Grid>
         </Box>
